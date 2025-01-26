@@ -1,80 +1,60 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>COVID-19 Analysis Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Comprehensive COVID-19 Analysis</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        .stats-card {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-bottom: 20px;
-            transition: transform 0.2s;
-        }
-        .stats-card:hover {
-            transform: translateY(-5px);
-        }
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #0d6efd;
-        }
         .chart-container {
+            margin-bottom: 30px;
+            padding: 15px;
             background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .header {
-            background: linear-gradient(135deg, #0d6efd, #0099ff);
-            color: white;
+        .stats-card {
             padding: 20px;
-            border-radius: 10px;
             margin-bottom: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body class="bg-light">
-    <div class="container mt-5">
-        <div class="header">
-            <h2>COVID-19 Comprehensive Analysis</h2>
-            <p>Combined analysis from time series, death statistics, and global distribution data</p>
-        </div>
+    <div class="container mt-4">
+        <a href="/" class="btn btn-primary mb-4">Back to Home</a>
+        
+        <h2 class="mb-4">Cross-Data Insights</h2>
 
-        <!-- Cross-Data Insights -->
+        <!-- Statistics Cards -->
         <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h4>Cross-Data Insights</h4>
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="stats-card text-center">
-                                    <h5>Case Fatality Rate</h5>
-                                    <div class="stat-value" id="fatalityRate">Loading...</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stats-card text-center">
-                                    <h5>Age-Adjusted Risk</h5>
-                                    <div class="stat-value" id="ageRisk">Loading...</div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="stats-card text-center">
-                                    <h5>Total Cases</h5>
-                                    <div class="stat-value" id="totalCases">Loading...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h5>Case Fatality Rate</h5>
+                    <h3 id="fatalityRate">Loading...</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h5>Age-Adjusted Risk</h5>
+                    <h3 id="ageRisk">Loading...</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h5>Total Cases</h5>
+                    <h3 id="totalCases">Loading...</h3>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h5>Total Deaths</h5>
+                    <h3 id="totalDeaths">Loading...</h3>
                 </div>
             </div>
         </div>
 
-        <!-- Charts -->
+        <!-- Main Charts -->
         <div class="row">
             <div class="col-md-6">
                 <div class="chart-container">
@@ -90,43 +70,43 @@
             </div>
         </div>
 
-        <!-- Add these new chart containers -->
+        <!-- Daily Changes -->
         <div class="row">
             <div class="col-md-6">
                 <div class="chart-container">
                     <h5>Daily New Cases</h5>
-                    <img th:if="${dailyNewCasesChart}" th:src="@{'data:image/png;base64,' + ${dailyNewCasesChart}}" class="img-fluid"/>
+                    <canvas id="dailyNewCasesChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="chart-container">
                     <h5>Daily New Deaths</h5>
-                    <img th:if="${dailyNewDeathsChart}" th:src="@{'data:image/png;base64,' + ${dailyNewDeathsChart}}" class="img-fluid"/>
-                </div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class="col-md-12">
-                <div class="chart-container">
-                    <h5>Growth Rate</h5>
-                    <img th:if="${growthRateChart}" th:src="@{'data:image/png;base64,' + ${growthRateChart}}" class="img-fluid"/>
+                    <canvas id="dailyNewDeathsChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- New Combined Analysis Charts -->
+        <!-- Additional Analysis -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="chart-container">
+                    <h5>Growth Rate</h5>
+                    <canvas id="growthRateChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-6">
                 <div class="chart-container">
-                    <h5>Mortality vs Case Rate Correlation</h5>
+                    <h5>Mortality Correlation</h5>
                     <canvas id="correlationChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="chart-container">
                     <h5>Age Distribution Impact</h5>
-                    <canvas id="ageImpactChart"></canvas>
+                    <canvas id="ageDistributionChart"></canvas>
                 </div>
             </div>
         </div>
@@ -134,73 +114,184 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script th:inline="javascript">
+        // Get data from Thymeleaf
+        const dates = /*[[${dates}]]*/ [];
         const casesData = /*[[${casesData}]]*/ [];
         const deathsData = /*[[${deathsData}]]*/ [];
-        const globalStats = /*[[${globalStats}]]*/ {};
-        
-        function calculateCrossFatalityRate() {
-            const fatalityRate = globalStats['Mortality Rate'] || 0;
-            document.getElementById('fatalityRate').innerHTML = 
-                `${fatalityRate}%<br><span style="font-size: 0.8em">Death Rate</span>`;
-        }
+        const dailyNewCases = /*[[${dailyNewCases}]]*/ [];
+        const dailyNewDeaths = /*[[${dailyNewDeaths}]]*/ [];
+        const growthRateData = /*[[${growthRateData}]]*/ [];
+        const ageDistribution = /*[[${ageDistribution}]]*/ {};
+        const ageAdjustedRisk = /*[[${ageAdjustedRisk}]]*/ 0;
 
-        function calculateAgeRisk() {
-            const totalDeaths = globalStats['Total Deaths'] || 0;
-            const totalCases = globalStats['Total Cases'] || 1;
-            const riskFactor = ((totalDeaths / totalCases) * 1000).toFixed(2);
-            document.getElementById('ageRisk').innerHTML = 
-                `${riskFactor}<br><span style="font-size: 0.8em">Deaths per 1,000 Cases</span>`;
-        }
+        // Update statistics
+        document.getElementById('totalCases').textContent = casesData[casesData.length - 1].toLocaleString();
+        document.getElementById('totalDeaths').textContent = deathsData[deathsData.length - 1].toLocaleString();
+        document.getElementById('fatalityRate').textContent = 
+            ((deathsData[deathsData.length - 1] / casesData[casesData.length - 1]) * 100).toFixed(2) + '%';
+        document.getElementById('ageRisk').textContent = ageAdjustedRisk + '%';
 
-        function calculateTotalCases() {
-            const totalCases = globalStats['Total Cases'] || 0;
-            document.getElementById('totalCases').innerHTML = 
-                `${totalCases.toLocaleString()}<br><span style="font-size: 0.8em">Cases</span>`;
-        }
-
-        function initializeCharts() {
-            // Cases Over Time Chart
-            new Chart(document.getElementById('casesChart'), {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: casesData.length}, (_, i) => `Day ${i + 1}`),
-                    datasets: [{
-                        label: 'Total Cases',
-                        data: casesData,
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } }
+        // Cases Over Time Chart
+        new Chart(document.getElementById('casesChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Total Cases',
+                    data: casesData,
+                    borderColor: 'rgb(54, 162, 235)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Cases Over Time'
+                    }
                 }
-            });
+            }
+        });
 
-            // Deaths Over Time Chart
-            new Chart(document.getElementById('deathsChart'), {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: deathsData.length}, (_, i) => `Day ${i + 1}`),
-                    datasets: [{
-                        label: 'Total Deaths',
-                        data: deathsData,
-                        borderColor: 'rgb(255, 99, 132)',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: { y: { beginAtZero: true } }
+        // Deaths Over Time Chart
+        new Chart(document.getElementById('deathsChart'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Total Deaths',
+                    data: deathsData,
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Deaths Over Time'
+                    }
                 }
-            });
-        }
+            }
+        });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            calculateCrossFatalityRate();
-            calculateAgeRisk();
-            calculateTotalCases();
-            initializeCharts();
+        // Daily New Cases Chart
+        new Chart(document.getElementById('dailyNewCasesChart'), {
+            type: 'line',
+            data: {
+                labels: Array.from({length: dailyNewCases.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Daily New Cases',
+                    data: dailyNewCases,
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily New Cases'
+                    }
+                }
+            }
+        });
+
+        // Daily New Deaths Chart
+        new Chart(document.getElementById('dailyNewDeathsChart'), {
+            type: 'line',
+            data: {
+                labels: Array.from({length: dailyNewDeaths.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Daily New Deaths',
+                    data: dailyNewDeaths,
+                    borderColor: 'rgb(255, 99, 132)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Daily New Deaths'
+                    }
+                }
+            }
+        });
+
+        // Growth Rate Chart
+        new Chart(document.getElementById('growthRateChart'), {
+            type: 'line',
+            data: {
+                labels: Array.from({length: growthRateData.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Growth Rate (%)',
+                    data: growthRateData,
+                    borderColor: 'rgb(153, 102, 255)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Growth Rate Over Time'
+                    }
+                }
+            }
+        });
+
+        // Create correlation chart (scatter plot)
+        new Chart(document.getElementById('correlationChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Cases vs Deaths',
+                    data: casesData.map((cases, i) => ({
+                        x: cases,
+                        y: deathsData[i]
+                    })),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Cases vs Deaths Correlation'
+                    }
+                }
+            }
+        });
+
+        // Create age distribution chart
+        new Chart(document.getElementById('ageDistributionChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(ageDistribution),
+                datasets: [{
+                    label: 'Deaths by Age Group',
+                    data: Object.values(ageDistribution),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Deaths by Age Group'
+                    }
+                }
+            }
         });
     </script>
 </body>

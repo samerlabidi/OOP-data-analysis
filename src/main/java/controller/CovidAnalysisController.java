@@ -5,42 +5,43 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.DoubleSummaryStatistics;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtils;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.category.DefaultCategoryDataset;
-import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import analysis.CovidDataAnalyzer;
-import dataIngestion.DataImporter;
 import model.CovidDeath;
-import model.DescriptiveStats;
-import model.RegressionModel;
 import visualization.AdvancedCovidVisualizer;
 import visualization.CovidDataVisualizer;
 
@@ -52,6 +53,7 @@ public class CovidAnalysisController {
     private List<CSVRecord> currentRecords;
     private Map<String, List<Double>> dataMap;
 
+    @Autowired
     public CovidAnalysisController(CovidDataAnalyzer analyzer, CovidDataVisualizer visualizer, AdvancedCovidVisualizer advancedVisualizer) {
         this.analyzer = analyzer;
         this.visualizer = visualizer;
@@ -66,184 +68,50 @@ public class CovidAnalysisController {
 
     @PostMapping("/upload")
     public String handleFileUpload(@RequestParam("file") MultipartFile file,
-                           @RequestParam("fileType") String fileType,
-                           Model model) {
+                             @RequestParam("fileType") String fileType,
+                             Model model) {
         try {
             if (file.isEmpty()) {
                 throw new IllegalArgumentException("Please select a file to upload");
             }
 
-            if ("json".equals(fileType)) {
-                List<CovidDeath> deathStats = processDeathData(file.getInputStream());
-                Map<String, Object> chartData = new HashMap<>();
+            if ("csv".equals(fileType)) {
+                // Process CSV file
+                Reader reader = new InputStreamReader(file.getInputStream());
+                CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
+                List<CSVRecord> records = csvParser.getRecords();
                 
-                // Existing calculations
-                Map<String, Double> ageGroups = deathStats.stream()
-                    .filter(d -> d.getAgeGroup() != null && !d.getAgeGroup().equals("All ages"))
-                    .collect(Collectors.groupingBy(
-                        CovidDeath::getAgeGroup,
-                        Collectors.summingDouble(d -> {
-                            try {
-                                return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                            } catch (Exception e) {
-                                return 0.0;
-                            }
-                        })
-                    ));
+                Map<String, Object> processedData = processCSVData(records);
                 
-                double totalDeaths = ageGroups.values().stream().mapToDouble(Double::doubleValue).sum();
+                // Check data type and return appropriate view
+                if ("timeSeries".equals(processedData.get("type"))) {
+                    model.addAttribute("data", processedData);
+                    return "timeseries-analysis";
+                } else {
+                    model.addAttribute("data", processedData);
+                    return "csv-analysis";
+                }
+            } else if ("json".equals(fileType)) {
+                // Process JSON file from resources folder
+                InputStream inputStream = getClass().getResourceAsStream("/coviddeath.json");
+                List<CovidDeath> deathStats = processDeathData(inputStream);
+                Map<String, Object> viewData = processJSONData(deathStats);
                 
-                // New insights calculations
+                // Debug prints
+                System.out.println("Death Stats size: " + deathStats.size());
+                System.out.println("View Data keys: " + viewData.keySet());
+                System.out.println("Condition Groups: " + viewData.get("conditionGroups"));
+                System.out.println("Age Groups: " + viewData.get("ageGroups"));
                 
-                // 1. Top 5 conditions by death count
-                Map<String, Double> top5Conditions = deathStats.stream()
-                    .filter(d -> d.getConditionGroup() != null)
-                    .collect(Collectors.groupingBy(
-                        CovidDeath::getConditionGroup,
-                        Collectors.summingDouble(d -> {
-                            try {
-                                return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                            } catch (Exception e) {
-                                return 0.0;
-                            }
-                        })
-                    ))
-                    .entrySet().stream()
-                    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                    .limit(5)
-                    .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (e1, e2) -> e1,
-                        LinkedHashMap::new
-                    ));
-
-                // 2. Age group mortality rate (deaths per 100k population)
-                // Note: This would require population data, using percentages instead
-                Map<String, Double> ageGroupPercentages = new HashMap<>();
-                ageGroups.forEach((group, deaths) -> 
-                    ageGroupPercentages.put(group, (deaths / totalDeaths) * 100));
-
-                // Debug print some sample dates
-                System.out.println("Sample date format: " + 
-                    deathStats.stream()
-                        .map(CovidDeath::getStartWeek)
-                        .findFirst()
-                        .orElse("No date found"));
-                
-                // Improved monthly trend calculation with date parsing
-                TreeMap<String, Double> monthlyTrend = deathStats.stream()
-                    .filter(d -> d.getStartWeek() != null && !d.getStartWeek().isEmpty())
-                    .collect(Collectors.groupingBy(
-                        d -> {
-                            try {
-                                String[] dateParts = d.getStartWeek().split("/");
-                                String month = dateParts[0];
-                                String year = "20" + dateParts[2]; // Assuming 2-digit year
-                                return String.format("%s-%02d", year, Integer.parseInt(month));
-                            } catch (Exception e) {
-                                return "Unknown";
-                            }
-                        },
-                        TreeMap::new,
-                        Collectors.summingDouble(d -> {
-                            try {
-                                return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                            } catch (Exception e) {
-                                return 0.0;
-                            }
-                        })
-                    ));
-
-                // Remove any invalid entries
-                monthlyTrend.remove("Unknown");
-                
-                System.out.println("Monthly trend data points: " + monthlyTrend.size());
-                monthlyTrend.forEach((month, deaths) -> 
-                    System.out.println(month + ": " + deaths));
-                
-                chartData.put("monthlyTrend", monthlyTrend);
-                
-                // Calculate age group mortality comparison
-                Map<String, Double> ageGroupComparison = deathStats.stream()
-                    .filter(d -> d.getAgeGroup() != null && !d.getAgeGroup().equals("All ages"))
-                    .collect(Collectors.groupingBy(
-                        CovidDeath::getAgeGroup,
-                        Collectors.summingDouble(d -> {
-                            try {
-                                return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                            } catch (Exception e) {
-                                return 0.0;
-                            }
-                        })
-                    ));
-
-                // Sort by death count and get top 10
-                Map<String, Double> top10AgeGroups = ageGroupComparison.entrySet().stream()
-                    .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                    .limit(10)
-                    .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (e1, e2) -> e1,
-                        LinkedHashMap::new
-                    ));
-
-                chartData.put("ageGroupComparison", top10AgeGroups);
-                
-                // 4. Calculate comorbidity statistics
-                double covidOnlyDeaths = deathStats.stream()
-                    .filter(d -> "Coronavirus Disease 2019".equals(d.getConditionGroup()))
-                    .mapToDouble(d -> {
-                        try {
-                            return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                        } catch (Exception e) {
-                            return 0.0;
-                        }
-                    })
-                    .sum();
-
-                // Add all data to chartData
-                chartData.putAll(Map.of(
-                    "ageGroups", ageGroups,
-                    "ageGroupPercentages", ageGroupPercentages,
-                    "conditionGroups", deathStats.stream()
-                        .filter(d -> d.getConditionGroup() != null)
-                        .collect(Collectors.groupingBy(
-                            CovidDeath::getConditionGroup,
-                            Collectors.summingDouble(d -> {
-                                try {
-                                    return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
-                                } catch (Exception e) {
-                                    return 0.0;
-                                }
-                            })
-                        )),
-                    "totalDeaths", totalDeaths,
-                    "totalCovidDeaths", covidOnlyDeaths,
-                    "analysisPeriod", deathStats.stream()
-                        .map(CovidDeath::getStartWeek)
-                        .min(String::compareTo)
-                        .orElse("Unknown") + " to " + 
-                        deathStats.stream()
-                        .map(CovidDeath::getEndWeek)
-                        .max(String::compareTo)
-                        .orElse("Unknown"),
-                    "top5Conditions", top5Conditions
-                ));
-                
-                model.addAttribute("chartData", chartData);
+                model.addAttribute("chartData", viewData);
                 return "json-analysis";
             }
             
-            // ... rest of the code for CSV handling
-            
+            return "index";
         } catch (Exception e) {
-            e.printStackTrace();
             model.addAttribute("error", "Error processing file: " + e.getMessage());
             return "error";
         }
-        return "index";
     }
 
     @PostMapping("/upload-multiple")
@@ -252,43 +120,124 @@ public class CovidAnalysisController {
         @RequestParam("timeSeriesData") MultipartFile timeSeriesData,
         @RequestParam("deathData") MultipartFile deathData,
         Model model) {
+        
+        System.out.println("Starting comprehensive analysis...");
+        
         try {
-            // Process data
-            List<CSVRecord> currentRecords = DataImporter.importCSV(currentData.getInputStream());
-            Map<String, List<Double>> currentStats = processCurrentData(currentRecords);
+            // Process the uploaded files directly instead of reading from resources
+            List<String[]> csvData = new ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(timeSeriesData.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    csvData.add(line.split(","));
+                }
+            }
+
+            if (csvData.isEmpty()) {
+                throw new RuntimeException("No CSV data available");
+            }
+
+            // Skip header row and process data
+            List<Double> cases = new ArrayList<>();
+            List<Double> deaths = new ArrayList<>();
+            List<String> dates = new ArrayList<>();
+
+            for (int i = 1; i < csvData.size(); i++) {
+                String[] row = csvData.get(i);
+                if (row.length > 3) {
+                    cases.add(parseDoubleOrZero(row[2]));
+                    deaths.add(parseDoubleOrZero(row[3]));
+                    dates.add(row[0]); // Assuming date is in first column
+                }
+            }
+
+            // Calculate daily changes
+            List<Double> dailyNewCases = calculateDailyChanges(cases);
+            List<Double> dailyNewDeaths = calculateDailyChanges(deaths);
             
-            List<CSVRecord> timeSeriesRecords = DataImporter.importCSV(timeSeriesData.getInputStream());
-            Map<String, List<Double>> timeSeriesStats = processTimeSeriesData(timeSeriesRecords);
-            
-            // Calculate global statistics
-            Map<String, Double> globalStats = new HashMap<>();
-            List<Double> cases = timeSeriesStats.get("confirmed");
-            List<Double> deaths = timeSeriesStats.get("deaths");
-            
-            globalStats.put("Total Cases", cases.get(cases.size() - 1));
-            globalStats.put("Total Deaths", deaths.get(deaths.size() - 1));
-            globalStats.put("Growth Rate", Math.round(calculateGrowthRate(cases) * 100.0) / 100.0);
-            globalStats.put("Mortality Rate", Math.round((deaths.get(deaths.size() - 1) / cases.get(cases.size() - 1) * 100) * 100.0) / 100.0);
-            
-            // Calculate daily new cases and deaths
-            List<Double> dailyNewCases = calculateDailyNew(cases);
-            List<Double> dailyNewDeaths = calculateDailyNew(deaths);
-            
-            // Round daily growth rates
-            List<Double> roundedGrowthRates = calculateDailyGrowthRates(cases).stream()
-                .map(rate -> Math.round(rate * 100.0) / 100.0)
-                .collect(Collectors.toList());
-            
-            model.addAttribute("globalStats", globalStats);
+            // Calculate growth rates
+            List<Double> growthRates = calculateGrowthRates(cases);
+
+            // Process death data from the uploaded JSON file
+            List<CovidDeath> deathStats = new ArrayList<>();
+            if (!deathData.isEmpty()) {
+                ObjectMapper mapper = new ObjectMapper();
+                deathStats = Arrays.asList(mapper.readValue(deathData.getInputStream(), CovidDeath[].class));
+            }
+
+            // Process age distribution data
+            Map<String, Double> ageDistribution = new TreeMap<>();
+            if (!deathStats.isEmpty()) {
+                ageDistribution = deathStats.stream()
+                    .filter(d -> d.getAgeGroup() != null && !d.getAgeGroup().equals("All ages"))
+                    .collect(Collectors.groupingBy(
+                        CovidDeath::getAgeGroup,
+                        Collectors.summingDouble(d -> {
+                            try {
+                                return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
+                            } catch (Exception e) {
+                                return 0.0;
+                            }
+                        })
+                    ));
+            }
+
+            // Calculate age-adjusted risk
+            double ageAdjustedRisk = 0.0;
+            if (!ageDistribution.isEmpty()) {
+                double totalDeaths = ageDistribution.values().stream().mapToDouble(Double::doubleValue).sum();
+                double totalCases = cases.get(cases.size() - 1);
+                
+                // Base mortality rate
+                double baseMortalityRate = (totalDeaths / totalCases);
+                
+                // Calculate weighted risk by age group
+                double weightedRisk = 0.0;
+                double totalWeight = 0.0;
+                
+                for (Map.Entry<String, Double> entry : ageDistribution.entrySet()) {
+                    String ageGroup = entry.getKey();
+                    double ageGroupDeaths = entry.getValue();
+                    
+                    // Assign weights based on age groups
+                    double weight;
+                    if (ageGroup.startsWith("0")) weight = 0.2;      // 0-17
+                    else if (ageGroup.startsWith("1")) weight = 0.4; // 18-29
+                    else if (ageGroup.startsWith("3")) weight = 0.6; // 30-39
+                    else if (ageGroup.startsWith("4")) weight = 0.8; // 40-49
+                    else if (ageGroup.startsWith("5")) weight = 1.0; // 50-64
+                    else if (ageGroup.startsWith("6")) weight = 1.2; // 65-74
+                    else if (ageGroup.startsWith("7")) weight = 1.4; // 75-84
+                    else weight = 1.6;                               // 85+
+                    
+                    weightedRisk += (ageGroupDeaths / totalDeaths) * weight;
+                    totalWeight += weight;
+                }
+                
+                // Calculate final risk
+                if (totalWeight > 0) {
+                    ageAdjustedRisk = (weightedRisk / totalWeight) * baseMortalityRate * 100;
+                    ageAdjustedRisk = Math.round(ageAdjustedRisk * 10.0) / 10.0; // Round to 1 decimal place
+                }
+            }
+
+            // Add to model
+            model.addAttribute("ageAdjustedRisk", ageAdjustedRisk);
+
+            // Add all data to model
+            model.addAttribute("dates", dates);
             model.addAttribute("casesData", cases);
             model.addAttribute("deathsData", deaths);
             model.addAttribute("dailyNewCases", dailyNewCases);
             model.addAttribute("dailyNewDeaths", dailyNewDeaths);
-            model.addAttribute("growthRateData", roundedGrowthRates);
+            model.addAttribute("growthRateData", growthRates);
+            model.addAttribute("ageDistribution", ageDistribution);
 
             return "comprehensive-analysis";
         } catch (Exception e) {
-            model.addAttribute("error", "Error processing files: " + e.getMessage());
+            System.err.println("Error in comprehensive analysis: " + e.getMessage());
+            e.printStackTrace();
+            model.addAttribute("error", "Error processing data: " + e.getMessage());
             return "error";
         }
     }
@@ -296,69 +245,32 @@ public class CovidAnalysisController {
     @GetMapping("/analysis")
     public String showAnalysis(Model model) {
         if (currentRecords == null || currentRecords.isEmpty()) {
-            model.addAttribute("error", "No data available. Please upload a file first.");
-            return "index";
+            model.addAttribute("error", "No data available for analysis");
+            return "error";
         }
 
-        // Basic statistics
-        DescriptiveStats casesStats = analyzer.calculateDescriptiveStats(dataMap.get("cases"));
-        model.addAttribute("casesStats", casesStats);
-
-        // Correlation analysis
-        double correlation = analyzer.calculateCorrelation(
-            dataMap.get("cases"),
-            dataMap.get("deaths")
-        );
-        model.addAttribute("correlation", correlation);
-
-        // Regression analysis
-        RegressionModel regression = analyzer.performRegression(
-            dataMap.get("cases"),
-            dataMap.get("deaths")
-        );
-        model.addAttribute("regression", regression);
-
-        // Charts
         try {
-            model.addAttribute("casesHistogram", generateChart("histogram"));
-            model.addAttribute("scatterPlot", generateChart("scatter"));
-            model.addAttribute("timeSeriesPlot", generateChart("timeseries"));
-        } catch (IOException e) {
-            model.addAttribute("chartError", "Failed to generate charts: " + e.getMessage());
-        }
+            List<Double> cases = new ArrayList<>();
+            List<Double> deaths = new ArrayList<>();
+            List<String> dates = new ArrayList<>();
 
-        // Add map data
-        Map<String, Object> mapData = new HashMap<>();
-        
-        // Example coordinates for some countries
-        Map<String, double[]> coordinates = new HashMap<>();
-        coordinates.put("USA", new double[]{37.0902, -95.7129});
-        coordinates.put("Brazil", new double[]{-14.2350, -51.9253});
-        coordinates.put("India", new double[]{20.5937, 78.9629});
-
-        CSVRecord header = currentRecords.get(0);
-        String casesColumn = header.isMapped("Confirmed") ? "Confirmed" : "TotalCases";
-        String deathsColumn = header.isMapped("Deaths") ? "Deaths" : "TotalDeaths";
-
-        for (CSVRecord record : currentRecords) {
-            String country = record.get("Country/Region");
-            if (coordinates.containsKey(country)) {
-                Map<String, Object> countryData = new HashMap<>();
-                countryData.put("coordinates", coordinates.get(country));
-                try {
-                    String casesValue = record.get(casesColumn);
-                    String deathsValue = record.get(deathsColumn);
-                    countryData.put("cases", Double.parseDouble(casesValue.isEmpty() ? "0" : casesValue));
-                    countryData.put("deaths", Double.parseDouble(deathsValue.isEmpty() ? "0" : deathsValue));
-                    mapData.put(country, countryData);
-                } catch (IllegalArgumentException e) {
-                    continue; // Skip this record if parsing fails
-                }
+            for (CSVRecord record : currentRecords) {
+                cases.add(Double.parseDouble(record.get("TotalCases")));
+                deaths.add(Double.parseDouble(record.get("TotalDeaths")));
+                // Using index for date since it might not be present
+                dates.add(String.valueOf(dates.size() + 1));
             }
+
+            // Add raw data to model
+            model.addAttribute("casesData", cases);
+            model.addAttribute("deathsData", deaths);
+            model.addAttribute("dates", dates);
+
+            return "analysis";
+        } catch (Exception e) {
+            model.addAttribute("error", "Error processing data: " + e.getMessage());
+            return "error";
         }
-        
-        model.addAttribute("mapData", mapData);
-        return "analysis";
     }
 
     @GetMapping("/analyze-json")
@@ -440,41 +352,22 @@ public class CovidAnalysisController {
             .collect(Collectors.toList()));
     }
 
-    private void processJsonData(InputStream inputStream) throws IOException {
+    private Map<String, Object> processJsonData(InputStream inputStream) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         List<CovidDeath> deaths = mapper.readValue(inputStream, 
             mapper.getTypeFactory().constructCollectionType(List.class, CovidDeath.class));
 
-        if (deaths == null || deaths.isEmpty()) {
-            throw new IllegalArgumentException("No valid data found in the JSON file");
-        }
-
+        Map<String, Object> viewData = new HashMap<>();
+        
         // Group deaths by condition and age group
         Map<String, List<CovidDeath>> byCondition = deaths.stream()
             .collect(Collectors.groupingBy(CovidDeath::getConditionGroup));
 
-        // For visualization, we'll use the first condition's age distribution
-        List<CovidDeath> firstConditionData = byCondition.values().iterator().next();
-
-        dataMap.put("cases", firstConditionData.stream()
-            .filter(d -> !d.getAgeGroup().equals("All ages"))
-            .map(CovidDeath::getNumberOfDeaths)
-            .map(Double::valueOf)
-            .collect(Collectors.toList()));
-
-        // For deaths, we'll use the same data
-        dataMap.put("deaths", firstConditionData.stream()
-            .filter(d -> !d.getAgeGroup().equals("All ages"))
-            .map(CovidDeath::getNumberOfDeaths)
-            .map(Double::valueOf)
-            .collect(Collectors.toList()));
-
-        // For dates, we'll use indices since this is a snapshot
-        dataMap.put("dates", firstConditionData.stream()
-            .filter(d -> !d.getAgeGroup().equals("All ages"))
-            .map(firstConditionData::indexOf)
-            .map(Double::valueOf)
-            .collect(Collectors.toList()));
+        viewData.put("conditionGroups", byCondition);
+        viewData.put("ageGroups", deaths.stream()
+            .collect(Collectors.groupingBy(CovidDeath::getAgeGroup)));
+        
+        return viewData;
     }
 
     private String generateChart(String type) throws IOException {
@@ -507,19 +400,37 @@ public class CovidAnalysisController {
         return Base64.getEncoder().encodeToString(chartImage.toByteArray());
     }
 
-    private Map<String, List<Double>> processCurrentData(List<CSVRecord> records) {
-        Map<String, List<Double>> stats = new HashMap<>();
-        stats.put("cases", records.stream()
-            .map(record -> record.get("TotalCases"))
-            .filter(value -> !value.isEmpty())
-            .map(Double::parseDouble)
-            .collect(Collectors.toList()));
-        stats.put("deaths", records.stream()
-            .map(record -> record.get("TotalDeaths"))
-            .filter(value -> !value.isEmpty())
-            .map(Double::parseDouble)
-            .collect(Collectors.toList()));
-        return stats;
+    private Map<String, Object> processCurrentData(List<CSVRecord> records) {
+        Map<String, Object> data = new HashMap<>();
+        
+        List<Double> cases = new ArrayList<>();
+        List<Double> deaths = new ArrayList<>();
+        List<String> countries = new ArrayList<>();
+        
+        // Skip header
+        for (int i = 1; i < records.size(); i++) {
+            CSVRecord record = records.get(i);
+            try {
+                String casesStr = record.get("TotalCases").trim().replace(",", "");
+                String deathsStr = record.get("TotalDeaths").trim().replace(",", "");
+                String country = record.get("Country/Region").trim();
+                
+                // Only add if we have valid data
+                if (!casesStr.isEmpty() && !deathsStr.isEmpty()) {
+                    cases.add(Double.parseDouble(casesStr));
+                    deaths.add(Double.parseDouble(deathsStr));
+                    countries.add(country);
+                }
+            } catch (Exception e) {
+                System.out.println("Error processing row " + i + ": " + e.getMessage());
+            }
+        }
+        
+        data.put("cases", cases);
+        data.put("deaths", deaths);
+        data.put("countries", countries);
+        
+        return data;
     }
 
     private Map<String, List<Double>> processTimeSeriesData(List<CSVRecord> records) {
@@ -880,14 +791,8 @@ public class CovidAnalysisController {
 
     private double parseDoubleOrZero(String value) {
         try {
-            if (value == null || value.trim().isEmpty()) {
-                return 0.0;
-            }
-            // Remove any commas and spaces
-            value = value.replaceAll(",", "").trim();
-            return Double.parseDouble(value);
-        } catch (NumberFormatException e) {
-            System.out.println("Error parsing value '" + value + "': " + e.getMessage());
+            return Double.parseDouble(value.replace(",", ""));
+        } catch (Exception e) {
             return 0.0;
         }
     }
@@ -903,7 +808,51 @@ public class CovidAnalysisController {
         Map<String, Object> processedData = new HashMap<>();
         
         try {
-            System.out.println("Processing " + deathStats.size() + " records");
+            System.out.println("\n=== Processing Death Stats ===");
+            System.out.println("Total records: " + deathStats.size());
+            
+            // Print some sample records
+            System.out.println("\nSample records:");
+            deathStats.stream().limit(5).forEach(d -> 
+                System.out.println("Age: " + d.getAgeGroup() + 
+                                 ", Condition: " + d.getConditionGroup() + 
+                                 ", Deaths: " + d.getNumberOfDeaths()));
+            
+            double totalDeaths = deathStats.stream()
+                .filter(d -> d.getAgeGroup() != null && !d.getAgeGroup().equals("All ages"))
+                .mapToDouble(d -> {
+                    try {
+                        return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
+                    } catch (Exception e) {
+                        return 0.0;
+                    }
+                })
+                .sum();
+                
+            double covidDeaths = deathStats.stream()
+                .filter(d -> d.getConditionGroup() != null && 
+                            d.getConditionGroup().equals("Coronavirus Disease 2019") &&
+                            !d.getAgeGroup().equals("All ages"))
+                .mapToDouble(d -> {
+                    try {
+                        return Double.parseDouble(d.getNumberOfDeaths().replace(",", ""));
+                    } catch (Exception e) {
+                        return 0.0;
+                    }
+                })
+                .sum();
+
+            System.out.println("\nCalculated values:");
+            System.out.println("Total Deaths: " + totalDeaths);
+            System.out.println("COVID Deaths: " + covidDeaths);
+            System.out.println("COVID Impact: " + ((covidDeaths/totalDeaths) * 100) + "%");
+            
+            // Calculate comorbidity deaths
+            double comorbidityDeaths = totalDeaths - covidDeaths;
+
+            processedData.put("totalDeaths", totalDeaths);
+            processedData.put("totalCovidDeaths", covidDeaths);
+            processedData.put("comorbidityRate", (comorbidityDeaths / totalDeaths) * 100);
             
             // Group deaths by age groups
             Map<String, Double> ageGroupDeaths = deathStats.stream()
@@ -918,11 +867,6 @@ public class CovidAnalysisController {
                         }
                     })
                 ));
-
-            // Calculate total deaths
-            double totalDeaths = ageGroupDeaths.values().stream()
-                .mapToDouble(Double::doubleValue)
-                .sum();
 
             // Calculate percentages
             Map<String, Double> ageGroupPercentages = new HashMap<>();
@@ -947,166 +891,93 @@ public class CovidAnalysisController {
             processedData.put("ageGroupDeaths", ageGroupDeaths);
             processedData.put("ageGroupPercentages", ageGroupPercentages);
             processedData.put("conditionGroupDeaths", conditionGroupDeaths);
-            processedData.put("totalDeaths", totalDeaths);
+            processedData.put("analysisPeriod", deathStats.get(0).getStartWeek() + " to " + deathStats.get(0).getEndWeek());
             
-            if (!deathStats.isEmpty()) {
-                processedData.put("timeRange", deathStats.get(0).getStartWeek() + " to " + deathStats.get(0).getEndWeek());
-            }
-
-            System.out.println("Processed data structure: " + processedData);
+            // Fix the key names to match what the template expects
+            processedData.put("conditionGroups", processedData.get("conditionGroupDeaths"));
+            processedData.put("ageGroups", processedData.get("ageGroupDeaths"));
             
+            return processedData;
         } catch (Exception e) {
             System.err.println("Error processing data: " + e.getMessage());
             e.printStackTrace();
-        }
-        
-        return processedData;
-    }
-
-    @GetMapping("/comprehensive")
-    public String showComprehensiveAnalysis(Model model) {
-        System.out.println("=====================");
-        System.out.println("ENDPOINT HIT: /comprehensive");
-        System.out.println("=====================");
-        
-        try {
-            System.out.println("\n=== Starting Comprehensive Analysis ===");
-            List<CovidDeath> deathStats = readJSONFile();
-            System.out.println("Death stats loaded: " + (deathStats != null ? deathStats.size() : "null") + " records");
-            
-            try {
-                // Create and log base charts
-                System.out.println("\nCreating base charts...");
-                JFreeChart casesChart = visualizer.createLineChart(
-                    "Cases Over Time", "Date", "Cases", createCasesDataset());
-                JFreeChart deathsChart = visualizer.createLineChart(
-                    "Deaths Over Time", "Date", "Deaths", createDeathsDataset());
-                
-                // Log base64 conversion
-                String casesBase64 = chartToBase64(casesChart);
-                String deathsBase64 = chartToBase64(deathsChart);
-                System.out.println("Base charts created and converted: " + 
-                    (casesBase64 != null && deathsBase64 != null));
-                
-                model.addAttribute("casesChart", casesBase64);
-                model.addAttribute("deathsChart", deathsBase64);
-                
-                // Create and log advanced charts
-                System.out.println("\nCreating advanced charts...");
-                
-                // Daily New Cases
-                System.out.println("Creating daily new cases chart...");
-                JFreeChart dailyNewCasesChart = advancedVisualizer.createDailyChangeChart(
-                    createCasesDataset(), "Daily New Cases");
-                String dailyNewCasesBase64 = chartToBase64(dailyNewCasesChart);
-                System.out.println("Daily new cases chart created: " + (dailyNewCasesBase64 != null));
-                model.addAttribute("dailyNewCasesChart", dailyNewCasesBase64);
-                
-                // Daily New Deaths
-                System.out.println("Creating daily new deaths chart...");
-                JFreeChart dailyNewDeathsChart = advancedVisualizer.createDailyChangeChart(
-                    createDeathsDataset(), "Daily New Deaths");
-                String dailyNewDeathsBase64 = chartToBase64(dailyNewDeathsChart);
-                System.out.println("Daily new deaths chart created: " + (dailyNewDeathsBase64 != null));
-                model.addAttribute("dailyNewDeathsChart", dailyNewDeathsBase64);
-                
-                // Growth Rate
-                System.out.println("Creating growth rate chart...");
-                List<Double> cases = extractCases();
-                List<Double> dates = extractDates();
-                System.out.println("Data extracted - Cases: " + cases.size() + ", Dates: " + dates.size());
-                JFreeChart growthRateChart = advancedVisualizer.createGrowthRateChart(cases, dates);
-                String growthRateBase64 = chartToBase64(growthRateChart);
-                System.out.println("Growth rate chart created: " + (growthRateBase64 != null));
-                model.addAttribute("growthRateChart", growthRateBase64);
-                
-                // Mortality Correlation
-                System.out.println("Creating mortality correlation chart...");
-                JFreeChart mortalityCorrelationChart = advancedVisualizer.createMortalityCorrelationChart(
-                    createCasesDataset(), createDeathsDataset());
-                String correlationBase64 = chartToBase64(mortalityCorrelationChart);
-                System.out.println("Mortality correlation chart created: " + (correlationBase64 != null));
-                model.addAttribute("correlationChart", correlationBase64);
-                
-                // Age Distribution
-                System.out.println("Creating age distribution chart...");
-                JFreeChart ageDistributionChart = advancedVisualizer.createAgeDistributionChart(deathStats);
-                String ageDistributionBase64 = chartToBase64(ageDistributionChart);
-                System.out.println("Age distribution chart created: " + (ageDistributionBase64 != null));
-                model.addAttribute("ageImpactChart", ageDistributionBase64);
-                
-                System.out.println("\n=== Comprehensive Analysis Complete ===");
-                
-            } catch (Exception e) {
-                System.err.println("Error in chart creation: " + e.getMessage());
-                e.printStackTrace();
-            }
-            
-            return "comprehensive-analysis";
-        } catch (Exception e) {
-            System.err.println("Fatal error: " + e.getMessage());
-            e.printStackTrace();
-            model.addAttribute("error", "Error processing data: " + e.getMessage());
-            return "error";
+            return processedData;
         }
     }
 
-    private String chartToBase64(JFreeChart chart) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ChartUtils.writeChartAsPNG(baos, chart, 800, 400);
-        return Base64.getEncoder().encodeToString(baos.toByteArray());
-    }
-
-    private XYDataset createCasesDataset() {
-        XYSeries series = new XYSeries("Cases");
-        List<String[]> csvData = readCSVFile("covid_grouped.csv");
-        
-        for (int i = 0; i < csvData.size(); i++) {
-            String[] row = csvData.get(i);
-            series.add(i, parseDoubleOrZero(row[2])); // Confirmed cases are in column 2
+    private List<Double> calculateDailyChanges(List<Double> data) {
+        List<Double> changes = new ArrayList<>();
+        for (int i = 1; i < data.size(); i++) {
+            changes.add(data.get(i) - data.get(i-1));
         }
-        
-        return new XYSeriesCollection(series);
+        return changes;
     }
 
-    private XYDataset createDeathsDataset() {
-        XYSeries series = new XYSeries("Deaths");
-        List<String[]> csvData = readCSVFile("covid_grouped.csv");
-        
-        for (int i = 0; i < csvData.size(); i++) {
-            String[] row = csvData.get(i);
-            series.add(i, parseDoubleOrZero(row[3])); // Deaths are in column 3
+    private List<Double> calculateGrowthRates(List<Double> data) {
+        List<Double> rates = new ArrayList<>();
+        for (int i = 1; i < data.size(); i++) {
+            double previous = data.get(i-1);
+            double current = data.get(i);
+            double rate = previous > 0 ? ((current - previous) / previous) * 100 : 0;
+            rates.add(Math.round(rate * 100.0) / 100.0); // Round to 2 decimal places
         }
-        
-        return new XYSeriesCollection(series);
-    }
-
-    private List<Double> extractCases() {
-        List<String[]> csvData = readCSVFile("covid_grouped.csv");
-        return csvData.stream()
-            .map(row -> parseDoubleOrZero(row[2])) // Confirmed cases column
-            .collect(Collectors.toList());
-    }
-
-    private List<Double> extractDates() {
-        List<String[]> csvData = readCSVFile("covid_grouped.csv");
-        return IntStream.range(0, csvData.size())
-            .mapToDouble(i -> (double) i)
-            .boxed()
-            .collect(Collectors.toList());
+        return rates;
     }
 
     private List<String[]> readCSVFile(String filename) {
         List<String[]> records = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                getClass().getResourceAsStream("/static/data/" + filename)))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                records.add(line.split(","));
+        System.out.println("Attempting to read CSV file: " + filename);
+        
+        try {
+            InputStream is = getClass().getResourceAsStream("/" + filename);
+            if (is == null) {
+                System.err.println("Could not find file: /" + filename);
+                return records;
+            }
+            
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(is))) {
+                String line;
+                int lineCount = 0;
+                while ((line = br.readLine()) != null) {
+                    records.add(line.split(","));
+                    lineCount++;
+                }
+                System.out.println("Successfully read " + lineCount + " lines from " + filename);
             }
         } catch (IOException e) {
+            System.err.println("Error reading CSV file: " + e.getMessage());
             e.printStackTrace();
         }
         return records;
+    }
+
+    @GetMapping("/api/covid-data")
+    @ResponseBody
+    public Map<String, Object> getCovidData() {
+        Map<String, Object> data = new HashMap<>();
+        
+        if (currentRecords != null && !currentRecords.isEmpty()) {
+            List<Double> cases = new ArrayList<>();
+            List<Double> deaths = new ArrayList<>();
+            List<String> countries = new ArrayList<>();
+
+            for (CSVRecord record : currentRecords) {
+                String casesStr = record.get("TotalCases").trim();
+                String deathsStr = record.get("TotalDeaths").trim();
+                String country = record.get("Country/Region");
+                
+                if (!casesStr.isEmpty() && !deathsStr.isEmpty()) {
+                    cases.add(Double.parseDouble(casesStr.replace(",", "")));
+                    deaths.add(Double.parseDouble(deathsStr.replace(",", "")));
+                    countries.add(country);
+                }
+            }
+            
+            data.put("cases", cases);
+            data.put("deaths", deaths);
+            data.put("labels", countries);
+        }
+        
+        return data;
     }
 } 

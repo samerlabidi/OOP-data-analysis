@@ -213,6 +213,8 @@
         const chartData = /*[[${chartData}]]*/ {};
         
         function initializeCharts() {
+            console.log('Chart Data:', chartData);
+            
             // Update existing boxes
             document.getElementById('totalDeaths').textContent = 
                 chartData.totalCovidDeaths ? chartData.totalCovidDeaths.toLocaleString() : 'Not available';
@@ -325,57 +327,56 @@
             }
 
             // Top 5 Chart
-            if (chartData.top5Conditions) {
+            if (chartData.conditionGroups) {
                 new Chart(document.getElementById('top5Chart'), {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(chartData.top5Conditions),
+                        labels: Object.keys(chartData.conditionGroups).slice(0, 5),
                         datasets: [{
-                            label: 'Deaths',
-                            data: Object.values(chartData.top5Conditions),
-                            backgroundColor: 'rgba(153, 102, 255, 0.8)'
+                            label: 'Number of Deaths',
+                            data: Object.values(chartData.conditionGroups).slice(0, 5),
+                            backgroundColor: 'rgba(54, 162, 235, 0.8)'
                         }]
                     },
                     options: {
                         indexAxis: 'y',
                         responsive: true,
-                        plugins: {
-                            legend: { display: false }
+                        maintainAspectRatio: true,
+                        aspectRatio: 2,
+                        scales: {
+                            x: {
+                                beginAtZero: true
+                            }
                         }
                     }
                 });
             }
 
-            // Age Group Comparison Chart
-            if (chartData.ageGroupComparison) {
+            // Age Group Mortality Comparison
+            if (chartData.ageGroups) {
                 new Chart(document.getElementById('ageComparisonChart'), {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(chartData.ageGroupComparison),
+                        labels: Object.entries(chartData.ageGroups)
+                            .filter(([group]) => group !== 'Not stated')
+                            .sort((a, b) => b[1] - a[1])  // Sort by number of deaths, descending
+                            .map(([group]) => group),
                         datasets: [{
-                            label: 'Deaths',
-                            data: Object.values(chartData.ageGroupComparison),
-                            backgroundColor: [
-                                'rgba(255, 99, 132, 0.8)',
-                                'rgba(54, 162, 235, 0.8)',
-                                'rgba(255, 206, 86, 0.8)',
-                                'rgba(75, 192, 192, 0.8)',
-                                'rgba(153, 102, 255, 0.8)'
-                            ]
+                            label: 'Number of Deaths',
+                            data: Object.entries(chartData.ageGroups)
+                                .filter(([group]) => group !== 'Not stated')
+                                .sort((a, b) => b[1] - a[1])  // Sort by number of deaths, descending
+                                .map(([_, value]) => value),
+                            backgroundColor: 'rgba(75, 192, 192, 0.8)'
                         }]
                     },
                     options: {
                         responsive: true,
-                        plugins: {
-                            legend: { display: false }
-                        },
+                        maintainAspectRatio: true,
+                        aspectRatio: 2,
                         scales: {
                             y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Number of Deaths'
-                                }
+                                beginAtZero: true
                             }
                         }
                     }

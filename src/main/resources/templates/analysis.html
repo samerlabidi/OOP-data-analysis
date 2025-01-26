@@ -3,137 +3,162 @@
 <head>
     <title>COVID-19 Analysis Results</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         .chart-container {
-            margin: 20px 0;
-            text-align: center;
-        }
-        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
             margin-bottom: 20px;
-        }
-        .chart-title {
-            margin-bottom: 15px;
-            color: #495057;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 400px;  /* Fixed height */
+            position: relative;  /* For proper chart sizing */
         }
     </style>
 </head>
-<body>
+<body class="bg-light">
     <div class="container mt-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Analysis Results</h1>
-            <a href="/" class="btn btn-outline-primary">Upload New File</a>
-        </div>
+        <h1>Analysis Results</h1>
+        <a href="/" class="btn btn-primary mb-4">Back to Home</a>
 
-        <!-- Error Messages -->
-        <div th:if="${error}" class="alert alert-danger" role="alert">
-            <span th:text="${error}"></span>
-        </div>
-        <div th:if="${chartError}" class="alert alert-warning" role="alert">
-            <span th:text="${chartError}"></span>
-        </div>
-
-        <!-- Statistical Analysis -->
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card stats-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Basic Statistics</h5>
-                    </div>
-                    <div class="card-body">
-                        <div th:if="${casesStats}">
-                            <p><strong>Mean:</strong> <span th:text="${#numbers.formatDecimal(casesStats.mean, 1, 2)}"></span></p>
-                            <p><strong>Median:</strong> <span th:text="${#numbers.formatDecimal(casesStats.median, 1, 2)}"></span></p>
-                            <p><strong>Standard Deviation:</strong> <span th:text="${#numbers.formatDecimal(casesStats.standardDeviation, 1, 2)}"></span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card stats-card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Correlation Analysis</h5>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Correlation Coefficient:</strong> 
-                           <span th:text="${#numbers.formatDecimal(correlation, 1, 4)}"></span></p>
-                        <div th:if="${regression}">
-                            <p><strong>Regression Equation:</strong><br>
-                               y = <span th:text="${#numbers.formatDecimal(regression.slope, 1, 4)}"></span>x + 
-                               <span th:text="${#numbers.formatDecimal(regression.intercept, 1, 4)}"></span></p>
-                            <p><strong>R²:</strong> <span th:text="${#numbers.formatDecimal(regression.rSquared, 1, 4)}"></span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Visualizations -->
         <div class="row">
             <div class="col-md-6">
                 <div class="chart-container">
-                    <h4 class="chart-title">Distribution of Cases</h4>
-                    <img th:if="${casesHistogram}" th:src="@{'data:image/png;base64,' + ${casesHistogram}}" 
-                         alt="Cases Histogram" class="img-fluid">
+                    <h4>Total Cases by Country</h4>
+                    <canvas id="casesChart"></canvas>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="chart-container">
-                    <h4 class="chart-title">Cases vs Deaths</h4>
-                    <img th:if="${scatterPlot}" th:src="@{'data:image/png;base64,' + ${scatterPlot}}" 
-                         alt="Scatter Plot" class="img-fluid">
+                    <h4>Total Deaths by Country</h4>
+                    <canvas id="deathsChart"></canvas>
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-12">
                 <div class="chart-container">
-                    <h4 class="chart-title">Time Series Analysis</h4>
-                    <img th:if="${timeSeriesPlot}" th:src="@{'data:image/png;base64,' + ${timeSeriesPlot}}" 
-                         alt="Time Series Plot" class="img-fluid">
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title">Global Distribution</h5>
-                    </div>
-                    <div class="card-body">
-                        <div id="covidMap" style="height: 500px;"></div>
-                    </div>
+                    <h4>Cases vs Deaths Correlation</h4>
+                    <canvas id="correlationChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script th:inline="javascript">
-        const map = L.map('covidMap').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        const mapData = /*[[${mapData}]]*/ {};
+        const data = /*[[${data}]]*/ {};
         
-        Object.entries(mapData).forEach(([country, data]) => {
-            const marker = L.circle(data.coordinates, {
-                color: 'red',
-                fillColor: '#f03',
-                fillOpacity: 0.5,
-                radius: Math.sqrt(data.cases) * 1000
-            }).addTo(map);
-            
-            marker.bindPopup(`
-                <b>${country}</b><br>
-                Cases: ${data.cases.toLocaleString()}<br>
-                Deaths: ${data.deaths.toLocaleString()}
-            `);
+        // Common chart options
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        };
+
+        // Cases Chart
+        new Chart(document.getElementById('casesChart'), {
+            type: 'bar',
+            data: {
+                labels: data.countries.slice(0, 10),
+                datasets: [{
+                    label: 'Total Cases',
+                    data: data.cases.slice(0, 10),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y'  // Horizontal bars
+            }
+        });
+
+        // Deaths Chart
+        new Chart(document.getElementById('deathsChart'), {
+            type: 'bar',
+            data: {
+                labels: data.countries.slice(0, 10),
+                datasets: [{
+                    label: 'Total Deaths',
+                    data: data.deaths.slice(0, 10),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y'  // Horizontal bars
+            }
+        });
+
+        // Correlation Chart
+        new Chart(document.getElementById('correlationChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Cases vs Deaths',
+                    data: data.cases.slice(0, 50).map((cases, i) => ({
+                        x: cases,
+                        y: data.deaths[i],
+                        label: data.countries[i]
+                    })),
+                    backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Total Cases'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Total Deaths'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const point = context.raw;
+                                return `${point.label}: ${point.x.toLocaleString()} cases, ${point.y.toLocaleString()} deaths`;
+                            }
+                        }
+                    }
+                }
+            }
         });
     </script>
 </body>

@@ -145,6 +145,8 @@
     <script th:inline="javascript">
         const data = /*[[${data}]]*/ {};
         
+        console.log("Received data:", data); // Debug print
+        
         // Calculate summary statistics with proper data handling
         const totalCases = data.cases.reduce((a, b) => a + Number(b), 0);
         const totalDeaths = data.deaths.reduce((a, b) => a + Number(b), 0);
@@ -155,11 +157,43 @@
         console.log("Total Deaths:", totalDeaths); // Debug
         console.log("Mortality Rate:", mortalityRate); // Debug
 
-        // Update summary cards
+        // Update stats
         document.getElementById('totalCases').textContent = totalCases.toLocaleString();
         document.getElementById('totalDeaths').textContent = totalDeaths.toLocaleString();
-        document.getElementById('mortalityRate').textContent = mortalityRate === "N/A" ? mortalityRate : mortalityRate + '%';
+        document.getElementById('mortalityRate').textContent = mortalityRate;
         document.getElementById('countryCount').textContent = countryCount;
+
+        // Create correlation chart
+        new Chart(document.getElementById('correlationChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Cases vs Deaths by Country',
+                    data: data.countries.map((country, i) => ({
+                        x: data.cases[i],
+                        y: data.deaths[i]
+                    })),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Total Cases'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Total Deaths'
+                        }
+                    }
+                }
+            }
+        });
 
         // Calculate and display key insights with proper number handling
         const mortalityRates = data.cases.map((cases, i) => ({
@@ -179,8 +213,8 @@
             <ul>
                 <li><strong>${highestCaseCountry}</strong> has the highest number of cases with ${Math.max(...data.cases.map(Number)).toLocaleString()} cases.</li>
                 <li><strong>${highestMortalityCountry.country}</strong> has the highest mortality rate at ${highestMortalityCountry.rate.toFixed(2)}%.</li>
-                <li>The global average mortality rate is ${mortalityRate === "N/A" ? "N/A" : mortalityRate + "%"}.</li>
-                <li>${countryCount} countries are included in this analysis.</li>
+                <li>The global average mortality rate is ${((data.deaths.reduce((a, b) => a + b, 0) / data.cases.reduce((a, b) => a + b, 0)) * 100).toFixed(2) + "%"}.</li>
+                <li>${data.countries.length} countries are included in this analysis.</li>
             </ul>
         `;
         document.getElementById('keyInsights').innerHTML = insights;
@@ -396,60 +430,6 @@
                         title: {
                             display: true,
                             text: 'Percentage'
-                        }
-                    }
-                }
-            })
-        });
-
-        // Correlation Chart
-        new Chart(document.getElementById('correlationChart'), {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: 'Cases vs Deaths',
-                    data: data.countries.map((country, i) => ({
-                        x: data.cases[i],
-                        y: data.deaths[i]
-                    })),
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)'
-                }]
-            },
-            options: Object.assign({}, darkTheme, {
-                responsive: true,
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const index = context.dataIndex;
-                                return `${data.countries[index]}: ${context.raw.x.toLocaleString()} cases, ${context.raw.y.toLocaleString()} deaths`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        type: 'linear',
-                        position: 'bottom',
-                        title: {
-                            display: true,
-                            text: 'Total Cases'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return value.toLocaleString();
-                            }
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Total Deaths'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return value.toLocaleString();
-                            }
                         }
                     }
                 }
