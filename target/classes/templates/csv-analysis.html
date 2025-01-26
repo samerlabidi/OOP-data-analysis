@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>COVID-19 CSV Data Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #e5e5e5;  /* Light gray background */
+            padding-bottom: 2rem;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+        }
+        .stats-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .stat-label {
+            color: #333;  /* Darker text for better visibility */
+            font-size: 14px;
+        }
+        h1 {
+            color: #333;  /* Dark text for the title */
+        }
+        .analysis-text {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            color: #333;  /* Dark text for analysis */
+        }
+        h4 {
+            color: #333;  /* Dark text for subtitles */
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-chart-bar me-3"></i>COVID-19 Data Analysis</h1>
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>Back to Home
+            </a>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stat-value" id="totalCases">0</div>
+                    <div class="stat-label">Total Cases</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stat-value" id="totalDeaths">0</div>
+                    <div class="stat-label">Total Deaths</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stat-value" id="mortalityRate">0%</div>
+                    <div class="stat-label">Mortality Rate</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="stat-value" id="countryCount">0</div>
+                    <div class="stat-label">Countries Analyzed</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Insights -->
+        <div class="analysis-text mb-4">
+            <h4><i class="fas fa-lightbulb me-2"></i>Key Insights</h4>
+            <div id="keyInsights" class="mt-3">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Main Charts Row -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="chart-container">
+                    <h4>Cases and Deaths by Country</h4>
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="chart-container">
+                    <h4>Top 5 Most Affected Countries</h4>
+                    <canvas id="topCountriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Analysis Row -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h4>Mortality Rate by Country (Top 10)</h4>
+                    <canvas id="mortalityChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h4>Cases Distribution</h4>
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regional Analysis -->
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h4>Cases vs Deaths Correlation</h4>
+                    <canvas id="correlationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script th:inline="javascript">
+        const data = /*[[${data}]]*/ {};
+        
+        // Calculate summary statistics with proper data handling
+        const totalCases = data.cases.reduce((a, b) => a + Number(b), 0);
+        const totalDeaths = data.deaths.reduce((a, b) => a + Number(b), 0);
+        const mortalityRate = totalCases > 0 ? ((totalDeaths / totalCases) * 100).toFixed(2) : "N/A";
+        const countryCount = data.countries.length;
+
+        console.log("Total Cases:", totalCases); // Debug
+        console.log("Total Deaths:", totalDeaths); // Debug
+        console.log("Mortality Rate:", mortalityRate); // Debug
+
+        // Update summary cards
+        document.getElementById('totalCases').textContent = totalCases.toLocaleString();
+        document.getElementById('totalDeaths').textContent = totalDeaths.toLocaleString();
+        document.getElementById('mortalityRate').textContent = mortalityRate === "N/A" ? mortalityRate : mortalityRate + '%';
+        document.getElementById('countryCount').textContent = countryCount;
+
+        // Calculate and display key insights with proper number handling
+        const mortalityRates = data.cases.map((cases, i) => ({
+            country: data.countries[i],
+            cases: Number(cases),
+            deaths: Number(data.deaths[i]),
+            rate: Number(cases) > 0 ? (Number(data.deaths[i]) / Number(cases)) * 100 : 0
+        })).filter(item => item.cases > 0)
+          .sort((a, b) => b.rate - a.rate);
+
+        console.log("Mortality Rates:", mortalityRates); // Debug
+
+        const highestCaseCountry = data.countries[data.cases.indexOf(Math.max(...data.cases.map(Number)))];
+        const highestMortalityCountry = mortalityRates[0] || { country: 'N/A', rate: 0 };
+
+        const insights = `
+            <ul>
+                <li><strong>${highestCaseCountry}</strong> has the highest number of cases with ${Math.max(...data.cases.map(Number)).toLocaleString()} cases.</li>
+                <li><strong>${highestMortalityCountry.country}</strong> has the highest mortality rate at ${highestMortalityCountry.rate.toFixed(2)}%.</li>
+                <li>The global average mortality rate is ${mortalityRate === "N/A" ? "N/A" : mortalityRate + "%"}.</li>
+                <li>${countryCount} countries are included in this analysis.</li>
+            </ul>
+        `;
+        document.getElementById('keyInsights').innerHTML = insights;
+
+        // Set chart defaults for better visibility
+        Chart.defaults.color = '#333';  // Dark text for all chart labels
+        Chart.defaults.borderColor = '#ddd';  // Light grid lines
+
+        const darkTheme = {
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e0e0e0'
+                    }
+                },
+                title: {
+                    color: '#e0e0e0'
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#404040'
+                    },
+                    ticks: {
+                        color: '#e0e0e0'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: '#404040'
+                    },
+                    ticks: {
+                        color: '#e0e0e0'
+                    }
+                }
+            }
+        };
+
+        // Main chart
+        new Chart(document.getElementById('mainChart'), {
+            type: 'bar',
+            data: {
+                labels: data.countries,
+                datasets: [{
+                    label: 'Cases',
+                    data: data.cases,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }, {
+                    label: 'Deaths',
+                    data: data.deaths,
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.raw.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Top 5 countries chart
+        const indices = Array.from(Array(data.cases.length).keys())
+            .sort((a, b) => data.cases[b] - data.cases[a])
+            .slice(0, 5);
+        
+        const top5Countries = indices.map(i => data.countries[i]);
+        const top5Cases = indices.map(i => data.cases[i]);
+
+        new Chart(document.getElementById('topCountriesChart'), {
+            type: 'pie',
+            data: {
+                labels: top5Countries,
+                datasets: [{
+                    data: top5Cases,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)',
+                        'rgba(153, 102, 255, 0.5)'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.raw.toLocaleString() + ' cases';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Mortality Rate Chart (Top 10)
+        const top10MortalityRates = mortalityRates.slice(0, 10);
+        new Chart(document.getElementById('mortalityChart'), {
+            type: 'bar',
+            data: {
+                labels: top10MortalityRates.map(item => item.country),
+                datasets: [{
+                    label: 'Mortality Rate (%)',
+                    data: top10MortalityRates.map(item => item.rate),
+                    backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                    borderColor: 'rgb(255, 159, 64)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Mortality Rate (%)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Calculate case fatality rates for top 10 countries by cases
+        const countryData = data.countries.map((country, index) => ({
+            country: country,
+            cases: data.cases[index],
+            deaths: data.deaths[index],
+            fatalityRate: (data.deaths[index] / data.cases[index] * 100).toFixed(2)
+        }));
+
+        // Sort by total cases and get top 10
+        const top10 = countryData
+            .sort((a, b) => b.cases - a.cases)
+            .slice(0, 10);
+
+        // Fatality rate chart
+        new Chart(document.getElementById('distributionChart'), {
+            type: 'bar',
+            data: {
+                labels: top10.map(d => d.country),
+                datasets: [{
+                    label: 'Case Fatality Rate (%)',
+                    data: top10.map(d => d.fatalityRate),
+                    backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1
+                }, {
+                    label: 'Total Cases (scaled)',
+                    data: top10.map(d => (d.cases / Math.max(...top10.map(x => x.cases)) * 100).toFixed(2)),
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1
+                }]
+            },
+            options: Object.assign({}, darkTheme, {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Case Fatality Rate vs Cases (Top 10 Most Affected Countries)'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const country = top10[context.dataIndex];
+                                if (context.datasetIndex === 0) {
+                                    return `Fatality Rate: ${country.fatalityRate}% (${country.deaths.toLocaleString()} deaths)`;
+                                } else {
+                                    return `Total Cases: ${country.cases.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Percentage'
+                        }
+                    }
+                }
+            })
+        });
+
+        // Correlation Chart
+        new Chart(document.getElementById('correlationChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Cases vs Deaths',
+                    data: data.countries.map((country, i) => ({
+                        x: data.cases[i],
+                        y: data.deaths[i]
+                    })),
+                    backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                }]
+            },
+            options: Object.assign({}, darkTheme, {
+                responsive: true,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                return `${data.countries[index]}: ${context.raw.x.toLocaleString()} cases, ${context.raw.y.toLocaleString()} deaths`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        title: {
+                            display: true,
+                            text: 'Total Cases'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Total Deaths'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            })
+        });
+    </script>
+</body>
+</html> 

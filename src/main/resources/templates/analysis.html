@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>COVID-19 Analysis Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .chart-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stats-card {
+            margin-bottom: 20px;
+        }
+        .chart-title {
+            margin-bottom: 15px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Analysis Results</h1>
+            <a href="/" class="btn btn-outline-primary">Upload New File</a>
+        </div>
+
+        <!-- Error Messages -->
+        <div th:if="${error}" class="alert alert-danger" role="alert">
+            <span th:text="${error}"></span>
+        </div>
+        <div th:if="${chartError}" class="alert alert-warning" role="alert">
+            <span th:text="${chartError}"></span>
+        </div>
+
+        <!-- Statistical Analysis -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Basic Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${casesStats}">
+                            <p><strong>Mean:</strong> <span th:text="${#numbers.formatDecimal(casesStats.mean, 1, 2)}"></span></p>
+                            <p><strong>Median:</strong> <span th:text="${#numbers.formatDecimal(casesStats.median, 1, 2)}"></span></p>
+                            <p><strong>Standard Deviation:</strong> <span th:text="${#numbers.formatDecimal(casesStats.standardDeviation, 1, 2)}"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Correlation Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Correlation Coefficient:</strong> 
+                           <span th:text="${#numbers.formatDecimal(correlation, 1, 4)}"></span></p>
+                        <div th:if="${regression}">
+                            <p><strong>Regression Equation:</strong><br>
+                               y = <span th:text="${#numbers.formatDecimal(regression.slope, 1, 4)}"></span>x + 
+                               <span th:text="${#numbers.formatDecimal(regression.intercept, 1, 4)}"></span></p>
+                            <p><strong>R²:</strong> <span th:text="${#numbers.formatDecimal(regression.rSquared, 1, 4)}"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h4 class="chart-title">Distribution of Cases</h4>
+                    <img th:if="${casesHistogram}" th:src="@{'data:image/png;base64,' + ${casesHistogram}}" 
+                         alt="Cases Histogram" class="img-fluid">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h4 class="chart-title">Cases vs Deaths</h4>
+                    <img th:if="${scatterPlot}" th:src="@{'data:image/png;base64,' + ${scatterPlot}}" 
+                         alt="Scatter Plot" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h4 class="chart-title">Time Series Analysis</h4>
+                    <img th:if="${timeSeriesPlot}" th:src="@{'data:image/png;base64,' + ${timeSeriesPlot}}" 
+                         alt="Time Series Plot" class="img-fluid">
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Global Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="covidMap" style="height: 500px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script th:inline="javascript">
+        const map = L.map('covidMap').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        const mapData = /*[[${mapData}]]*/ {};
+        
+        Object.entries(mapData).forEach(([country, data]) => {
+            const marker = L.circle(data.coordinates, {
+                color: 'red',
+                fillColor: '#f03',
+                fillOpacity: 0.5,
+                radius: Math.sqrt(data.cases) * 1000
+            }).addTo(map);
+            
+            marker.bindPopup(`
+                <b>${country}</b><br>
+                Cases: ${data.cases.toLocaleString()}<br>
+                Deaths: ${data.deaths.toLocaleString()}
+            `);
+        });
+    </script>
+</body>
+</html> 
