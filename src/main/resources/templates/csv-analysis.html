@@ -6,50 +6,118 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: #e5e5e5;  /* Light gray background */
+            background: linear-gradient(135deg, #e5e5e5 0%, #d1d1d1 100%);
+            min-height: 100vh;
             padding-bottom: 2rem;
         }
-        .chart-container {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s;
+
+        .container.mt-5 {
+            background: linear-gradient(135deg, #2c4875 0%, #3a5a8c 100%);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(44, 72, 117, 0.2);
+            color: white;
         }
+
+        .header-section {
+            background: linear-gradient(135deg, #1c3255 0%, #2c4875 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 1rem 1rem;
+            box-shadow: 0 4px 15px rgba(44, 72, 117, 0.2);
+        }
+
+        .chart-container, .stats-card, .analysis-text {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
         .chart-container:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2);
+            transform: translateY(-3px);
         }
-        .stats-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        .stats-card:hover {
+            transform: translateY(-3px);
         }
+
         .stat-value {
-            font-size: 24px;
+            font-size: 2rem;
             font-weight: bold;
-            color: #0d6efd;
+            color: #2c4875;
+            margin-bottom: 0.5rem;
         }
+
         .stat-label {
-            color: #333;  /* Darker text for better visibility */
-            font-size: 14px;
+            color: #5b7db1;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1c3255 0%, #2c4875 100%);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2c4875 0%, #3a5a8c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
         h1 {
-            color: #333;  /* Dark text for the title */
+            color: white;
+            font-weight: 600;
         }
+
+        h3, h4, h5 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
         .analysis-text {
             background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            color: #333;  /* Dark text for analysis */
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            color: #2c3e50;
         }
-        h4 {
-            color: #333;  /* Dark text for subtitles */
+
+        .analysis-text h4 {
+            color: #2c3e50;  /* Dark color for Key Insights title */
+        }
+
+        .chart-container h4, .analysis-text h4 {
+            color: #2c3e50;  /* Consistent dark color for all section titles */
+            margin-bottom: 1rem;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #5b9a8b 0%, #4a8577 100%);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
@@ -57,9 +125,12 @@
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1><i class="fas fa-chart-bar me-3"></i>COVID-19 Data Analysis</h1>
-            <a href="/" class="btn btn-primary">
-                <i class="fas fa-home me-2"></i>Back to Home
-            </a>
+            <div class="btn-container">
+                <a href="/predict" class="btn btn-success">View Predictions</a>
+                <a href="/" class="btn btn-success">
+                    <i class="fas fa-home me-2"></i>Back to Home
+                </a>
+            </div>
         </div>
 
         <!-- Summary Statistics -->

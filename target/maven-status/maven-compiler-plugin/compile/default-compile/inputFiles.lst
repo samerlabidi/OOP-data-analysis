@@ -1,4 +1,5 @@
 C:\Users\samer\OOP_Project\src\main\java\config\AppConfig.java
+C:\Users\samer\OOP_Project\src\main\java\ml\LinearRegressionTrainer.java
 C:\Users\samer\OOP_Project\src\main\java\ml\Dataset.java
 C:\Users\samer\OOP_Project\src\main\java\exception\DatabaseException.java
 C:\Users\samer\OOP_Project\src\main\java\ml\ModelParameters.java
@@ -6,6 +7,7 @@ C:\Users\samer\OOP_Project\src\main\java\model\TimeSeriesAnalysis.java
 C:\Users\samer\OOP_Project\src\main\java\controller\CovidAnalysisController.java
 C:\Users\samer\OOP_Project\src\main\java\ml\Predictions.java
 C:\Users\samer\OOP_Project\src\main\java\dataIngestion\DataCleaner.java
+C:\Users\samer\OOP_Project\src\main\java\ml\CovidPredictionService.java
 C:\Users\samer\OOP_Project\src\main\java\ml\Model.java
 C:\Users\samer\OOP_Project\src\main\java\exception\ConfigurationException.java
 C:\Users\samer\OOP_Project\src\main\java\visualization\DataVisualizer.java

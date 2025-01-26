@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>COVID-19 Predictions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #e5e5e5 0%, #d1d1d1 100%);
+            min-height: 100vh;
+            padding-bottom: 2rem;
+        }
+
+        .container.mt-5 {
+            background: linear-gradient(135deg, #2c4875 0%, #3a5a8c 100%);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(44, 72, 117, 0.2);
+            color: white;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .chart-container h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .prediction-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            color: #2c3e50;
+        }
+
+        .prediction-card h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            color: white;
+            font-weight: 600;
+        }
+
+        h3, h4, h5 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #5b9a8b 0%, #4a8577 100%);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4a8577 0%, #3a7567 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .prediction-value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #2c4875;
+            margin-bottom: 0.5rem;
+        }
+
+        .prediction-label {
+            color: #5b7db1;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .accuracy-badge {
+            padding: 0.8rem 1.2rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .accuracy-badge.strong {
+            background: rgba(91, 154, 139, 0.1);
+            color: #5b9a8b;
+        }
+
+        .accuracy-badge.moderate {
+            background: rgba(255, 159, 64, 0.1);
+            color: #ff9f40;
+        }
+
+        .accuracy-badge.poor {
+            background: rgba(255, 99, 132, 0.1);
+            color: #ff6384;
+        }
+
+        .method-badge {
+            background: rgba(44, 72, 117, 0.1);
+            color: #2c4875;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            margin-right: 1rem;
+            display: inline-block;
+        }
+
+        .metrics-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            border-left: 4px solid #5b9a8b;
+            transition: transform 0.3s ease;
+        }
+
+        .metrics-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .metrics-card h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>COVID-19 Predictions</h1>
+        <a href="/" class="btn btn-primary mb-4">Back to Home</a>
+
+        <!-- Model Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="metrics-card">
+                    <h4>Model Accuracy (R²)</h4>
+                    <div class="prediction-value" th:text="${#numbers.formatDecimal(predictions.accuracy * 100, 1, 2)} + '%'"></div>
+                    <div class="prediction-label">Higher percentage indicates better model fit</div>
+                    <div th:with="accuracy=${predictions.accuracy}" 
+                         th:class="${'accuracy-badge mt-3 ' + (accuracy >= 0.7 ? 'strong' : accuracy >= 0.4 ? 'moderate' : 'poor')}">
+                        <i th:class="${'fas me-2 ' + (accuracy >= 0.7 ? 'fa-check-circle' : accuracy >= 0.4 ? 'fa-info-circle' : 'fa-exclamation-circle')}"></i>
+                        <span th:text="${accuracy >= 0.7 ? 'Strong Model Performance' : 
+                                       accuracy >= 0.4 ? 'Moderate Model Performance' : 
+                                       'Poor Model Performance'}"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prediction Chart -->
+        <div class="chart-container">
+            <h4>30-Day Case Prediction</h4>
+            <canvas id="predictionChart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script th:inline="javascript">
+        const predictions = /*[[${predictions}]]*/ {};
+        const actualData = /*[[${actualData}]]*/ [];
+        const timePoints = /*[[${timePoints}]]*/ [];
+
+        // Only show last 30 days of historical data
+        const displayDays = 30;
+        const startIndex = Math.max(0, actualData.length - displayDays);
+        
+        const displayedActualData = actualData.slice(startIndex);
+        const displayedTimePoints = timePoints.slice(startIndex);
+        
+        // Prepare prediction points
+        const lastTimePoint = timePoints[timePoints.length - 1];
+        const predictionTimePoints = Array.from({length: 30}, (_, i) => lastTimePoint + i + 1);
+
+        // Calculate min and max for better y-axis scaling
+        const minActual = Math.min(...displayedActualData);
+        const maxActual = Math.max(...displayedActualData);
+        const minPredicted = Math.min(...predictions.predictions);
+        const maxPredicted = Math.max(...predictions.predictions);
+        const yMin = Math.min(minActual, minPredicted) * 0.95;
+        const yMax = Math.max(maxActual, maxPredicted) * 1.05;
+
+        // Prepare data arrays with null padding
+        const historicalData = [...displayedActualData, ...Array(30).fill(null)];
+        const predictionData = [...Array(displayedActualData.length).fill(null), ...predictions.predictions];
+
+        new Chart(document.getElementById('predictionChart'), {
+            type: 'line',
+            data: {
+                labels: [...displayedTimePoints, ...predictionTimePoints],
+                datasets: [{
+                    label: 'Historical Data (Last 30 Days)',
+                    data: historicalData,
+                    borderColor: 'rgba(54, 162, 235, 0.3)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    borderWidth: 1,
+                    fill: false,
+                    pointRadius: 1,
+                    pointHoverRadius: 4
+                }, {
+                    label: 'Predicted Cases (Next 30 Days)',
+                    data: predictionData,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        min: yMin,
+                        max: yMax,
+                        title: {
+                            display: true,
+                            text: 'Number of Cases'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return (value / 1000000).toFixed(1) + 'M';
+                                } else if (value >= 1000) {
+                                    return (value / 1000).toFixed(1) + 'K';
+                                }
+                                return value;
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Days'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: '30-Day COVID-19 Case Prediction',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let value = context.raw;
+                                if (value >= 1000000) {
+                                    return context.dataset.label + ': ' + (value / 1000000).toFixed(2) + 'M';
+                                } else if (value >= 1000) {
+                                    return context.dataset.label + ': ' + (value / 1000).toFixed(2) + 'K';
+                                }
+                                return context.dataset.label + ': ' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const accuracy = /*[[${predictions.accuracy}]]*/ 0;
+        const accuracyBadge = document.querySelector('.accuracy-badge');
+        
+        if (accuracy >= 0.7) {
+            accuracyBadge.classList.add('strong');
+        } else if (accuracy >= 0.4) {
+            accuracyBadge.classList.add('moderate');
+        } else {
+            accuracyBadge.classList.add('poor');
+        }
+    </script>
+
+    <script>
+        // Chart color scheme
+        const chartColors = {
+            primary: '#2c4875',
+            secondary: '#5b7db1',
+            accent: '#a3b8d9',
+            warning: '#d35d67',
+            success: '#5b9a8b',
+            background: 'rgba(91, 125, 177, 0.1)'
+        };
+
+        // Apply these colors to all charts
+        Chart.defaults.color = '#2c3e50';
+        Chart.defaults.borderColor = '#e9ecef';
+    </script>
+</body>
+</html> 

@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"controller", "analysis", "visualization", "dataIngestion", "model"})
+@ComponentScan(basePackages = {"controller", "analysis", "visualization", "dataIngestion", "model", "ml"})
 public class CovidAnalysisApplication {
     public static void main(String[] args) {
         SpringApplication.run(CovidAnalysisApplication.class, args);

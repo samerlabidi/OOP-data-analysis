@@ -10,16 +10,34 @@
             min-height: 100vh;
         }
         .hero-section {
-            background: linear-gradient(135deg, #0d6efd 0%, #0099ff 100%);
+            background: linear-gradient(135deg, #2c4875 0%, #5b7db1 100%);
             color: white;
             padding: 4rem 0;
             margin-bottom: 3rem;
             border-radius: 0 0 2rem 2rem;
+            box-shadow: 0 4px 15px rgba(44, 72, 117, 0.2);
+        }
+        .hero-section .lead {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        .hero-section .badge {
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            background-color: rgba(255, 255, 255, 0.15) !important;
+            color: white !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .hero-section .display-4 {
+            font-size: 2.8rem;
+            line-height: 1.2;
+            margin-bottom: 1rem;
         }
         .upload-card {
             background: white;
             border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
             padding: 2rem;
             margin-bottom: 2rem;
             transition: transform 0.3s ease;
@@ -33,13 +51,15 @@
         }
         .file-input input[type="file"] {
             padding: 1rem;
-            border: 2px dashed #dee2e6;
+            border: 2px dashed #a3b8d9;
             border-radius: 0.5rem;
             width: 100%;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
         .file-input:hover input[type="file"] {
-            border-color: #0d6efd;
+            border-color: #5b7db1;
+            background: rgba(91, 125, 177, 0.05);
         }
         .feature-card {
             background: white;
@@ -47,15 +67,19 @@
             padding: 1.5rem;
             margin-bottom: 1.5rem;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-3px);
         }
         .feature-icon {
             font-size: 2rem;
-            color: #0d6efd;
+            color: #2c4875;
             margin-bottom: 1rem;
         }
         .btn-analyze {
-            background: linear-gradient(135deg, #0d6efd 0%, #0099ff 100%);
+            background: linear-gradient(135deg, #2c4875 0%, #5b7db1 100%);
             border: none;
             padding: 0.8rem 2rem;
             font-weight: 500;
@@ -63,13 +87,39 @@
         }
         .btn-analyze:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+            box-shadow: 0 4px 12px rgba(44, 72, 117, 0.3);
         }
         .supported-files {
-            background: rgba(13, 110, 253, 0.1);
+            background: rgba(91, 125, 177, 0.1);
             border-radius: 1rem;
             padding: 1.5rem;
             margin-top: 2rem;
+            border: 1px solid rgba(44, 72, 117, 0.1);
+        }
+        .supported-files h5 {
+            color: #2c4875;
+        }
+        .text-muted {
+            color: #5b7db1 !important;
+        }
+        h3, h5 {
+            color: #2c4875;
+        }
+        .form-select:focus {
+            border-color: #5b7db1;
+            box-shadow: 0 0 0 0.25rem rgba(91, 125, 177, 0.25);
+        }
+        .nav-pills .nav-link {
+            color: #2c4875;
+            border-radius: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .nav-pills .nav-link.active {
+            background: linear-gradient(135deg, #2c4875 0%, #5b7db1 100%);
+        }
+        .nav-pills .nav-link:hover:not(.active) {
+            background: rgba(91, 125, 177, 0.1);
         }
     </style>
 </head>
@@ -77,8 +127,26 @@
     <!-- Hero Section -->
     <div class="hero-section">
         <div class="container">
-            <h1 class="display-4 fw-bold mb-3">COVID-19 Data Analysis Platform</h1>
-            <p class="lead">Choose your analysis type and upload data files for visualization</p>
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-4 fw-bold mb-3">COVID-19 Data Analysis Platform</h1>
+                    <p class="lead mb-4">Analyze and visualize COVID-19 data with advanced statistical insights</p>
+                    <div class="d-flex gap-3">
+                        <span class="badge rounded-pill bg-light text-dark">
+                            <i class="fas fa-chart-line me-1"></i> Real-time Analysis
+                        </span>
+                        <span class="badge rounded-pill bg-light text-dark">
+                            <i class="fas fa-database me-1"></i> Multiple Data Sources
+                        </span>
+                        <span class="badge rounded-pill bg-light text-dark">
+                            <i class="fas fa-brain me-1"></i> ML Predictions
+                        </span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end d-none d-md-block">
+                    <i class="fas fa-virus-covid fa-5x text-white opacity-50"></i>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -169,7 +237,7 @@
                         <i class="fas fa-chart-bar"></i>
                     </div>
                     <h5>Interactive Visualizations</h5>
-                    <p class="text-muted">Dynamic charts and graphs for better data understanding</p>
+                    <p class="text-muted">Dynamic charts for better data understanding</p>
                 </div>
             </div>
             <div class="col-md-4">

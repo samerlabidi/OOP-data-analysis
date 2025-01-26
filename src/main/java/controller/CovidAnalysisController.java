@@ -41,6 +41,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import analysis.CovidDataAnalyzer;
+import ml.CovidPredictionService;
 import model.CovidDeath;
 import visualization.AdvancedCovidVisualizer;
 import visualization.CovidDataVisualizer;
@@ -52,6 +53,8 @@ public class CovidAnalysisController {
     private final AdvancedCovidVisualizer advancedVisualizer;
     private List<CSVRecord> currentRecords;
     private Map<String, List<Double>> dataMap;
+    @Autowired
+    private CovidPredictionService predictionService;
 
     @Autowired
     public CovidAnalysisController(CovidDataAnalyzer analyzer, CovidDataVisualizer visualizer, AdvancedCovidVisualizer advancedVisualizer) {
@@ -80,6 +83,9 @@ public class CovidAnalysisController {
                 Reader reader = new InputStreamReader(file.getInputStream());
                 CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
                 List<CSVRecord> records = csvParser.getRecords();
+                
+                // Store the records for prediction
+                this.currentRecords = records;
                 
                 Map<String, Object> processedData = processCSVData(records);
                 
@@ -124,7 +130,40 @@ public class CovidAnalysisController {
         System.out.println("Starting comprehensive analysis...");
         
         try {
-            // Process the uploaded files directly instead of reading from resources
+            // Process current data file first
+            List<String[]> currentDataRows = new ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(currentData.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    currentDataRows.add(line.split(","));
+                }
+            }
+            
+            // Process current data to get total cases and deaths
+            double totalCases = 0;
+            double totalDeaths = 0;
+            
+            // Skip header row
+            for (int i = 1; i < currentDataRows.size(); i++) {
+                String[] row = currentDataRows.get(i);
+                if (row.length >= 4) { // Ensure we have enough columns
+                    String casesStr = row[2].trim().replace(",", ""); // Assuming cases is in column 3
+                    String deathsStr = row[3].trim().replace(",", ""); // Assuming deaths is in column 4
+                    
+                    if (!casesStr.isEmpty() && !deathsStr.isEmpty()) {
+                        try {
+                            totalCases += Double.parseDouble(casesStr);
+                            totalDeaths += Double.parseDouble(deathsStr);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Error parsing numbers in row " + i + ": " + e.getMessage());
+                        }
+                    }
+                }
+            }
+            
+            System.out.println("Processed current data - Total Cases: " + totalCases + ", Total Deaths: " + totalDeaths);
+
+            // Process time series data (rest of your existing code)
             List<String[]> csvData = new ArrayList<>();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(timeSeriesData.getInputStream()))) {
                 String line;
@@ -182,24 +221,22 @@ public class CovidAnalysisController {
                     ));
             }
 
+            // Update totals BEFORE using them in calculations
+            totalCases = cases.stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+            totalDeaths = ageDistribution.values().stream().mapToDouble(Double::doubleValue).sum();
+
             // Calculate age-adjusted risk
+            double baseMortalityRate = 0.0;
             double ageAdjustedRisk = 0.0;
             if (!ageDistribution.isEmpty()) {
-                double totalDeaths = ageDistribution.values().stream().mapToDouble(Double::doubleValue).sum();
-                double totalCases = cases.get(cases.size() - 1);
+                // Base mortality rate (as percentage)
+                baseMortalityRate = (totalDeaths / totalCases) * 100;
                 
-                // Base mortality rate
-                double baseMortalityRate = (totalDeaths / totalCases);
+                // Normalize weights first
+                Map<String, Double> normalizedWeights = new HashMap<>();
+                double maxWeight = 1.6; // Our highest weight
                 
-                // Calculate weighted risk by age group
-                double weightedRisk = 0.0;
-                double totalWeight = 0.0;
-                
-                for (Map.Entry<String, Double> entry : ageDistribution.entrySet()) {
-                    String ageGroup = entry.getKey();
-                    double ageGroupDeaths = entry.getValue();
-                    
-                    // Assign weights based on age groups
+                for (String ageGroup : ageDistribution.keySet()) {
                     double weight;
                     if (ageGroup.startsWith("0")) weight = 0.2;      // 0-17
                     else if (ageGroup.startsWith("1")) weight = 0.4; // 18-29
@@ -210,19 +247,50 @@ public class CovidAnalysisController {
                     else if (ageGroup.startsWith("7")) weight = 1.4; // 75-84
                     else weight = 1.6;                               // 85+
                     
-                    weightedRisk += (ageGroupDeaths / totalDeaths) * weight;
-                    totalWeight += weight;
+                    normalizedWeights.put(ageGroup, weight / maxWeight);
                 }
                 
-                // Calculate final risk
-                if (totalWeight > 0) {
-                    ageAdjustedRisk = (weightedRisk / totalWeight) * baseMortalityRate * 100;
+                // Calculate age-specific mortality rates and apply weights
+                double weightedMortalitySum = 0.0;
+                double weightSum = 0.0;
+                
+                for (Map.Entry<String, Double> entry : ageDistribution.entrySet()) {
+                    String ageGroup = entry.getKey();
+                    double deathCount = entry.getValue();
+                    double weight = normalizedWeights.get(ageGroup);
+                    
+                    // Assume cases are distributed proportionally to deaths across age groups
+                    double estimatedCases = totalCases * (deathCount / totalDeaths);
+                    double ageSpecificMortality = (deathCount / estimatedCases) * 100;
+                    
+                    weightedMortalitySum += ageSpecificMortality * weight;
+                    weightSum += weight;
+                    
+                    System.out.println(String.format("Age group %s: Deaths=%f, Est.Cases=%f, Mortality=%f%%, Weight=%f",
+                        ageGroup, deathCount, estimatedCases, ageSpecificMortality, weight));
+                }
+                
+                // Calculate final weighted average
+                if (weightSum > 0) {
+                    ageAdjustedRisk = weightedMortalitySum / weightSum;
+                    ageAdjustedRisk = Math.min(100, Math.max(0, ageAdjustedRisk));
                     ageAdjustedRisk = Math.round(ageAdjustedRisk * 10.0) / 10.0; // Round to 1 decimal place
                 }
+                
+                System.out.println("Risk calculation details:");
+                System.out.println("Total deaths: " + totalDeaths);
+                System.out.println("Total cases: " + totalCases);
+                System.out.println("Weighted mortality sum: " + weightedMortalitySum);
+                System.out.println("Weight sum: " + weightSum);
+                System.out.println("Final age-adjusted risk: " + ageAdjustedRisk + "%");
             }
 
-            // Add to model
+            // Add both rates to the model for clarity
+            model.addAttribute("baseMortalityRate", baseMortalityRate);
             model.addAttribute("ageAdjustedRisk", ageAdjustedRisk);
+            model.addAttribute("riskExplanation", 
+                String.format("When adjusted for age groups, the mortality risk is %.1f%% higher than the baseline mortality rate of %.1f%%", 
+                ageAdjustedRisk, baseMortalityRate));
 
             // Add all data to model
             model.addAttribute("dates", dates);
@@ -233,6 +301,10 @@ public class CovidAnalysisController {
             model.addAttribute("growthRateData", growthRates);
             model.addAttribute("ageDistribution", ageDistribution);
 
+            // Add to model before returning
+            model.addAttribute("totalCases", totalCases);
+            model.addAttribute("totalDeaths", totalDeaths);
+            
             return "comprehensive-analysis";
         } catch (Exception e) {
             System.err.println("Error in comprehensive analysis: " + e.getMessage());
@@ -979,5 +1051,71 @@ public class CovidAnalysisController {
         }
         
         return data;
+    }
+
+    @GetMapping("/predict")
+    public String showPredictions(Model model) {
+        if (currentRecords == null || currentRecords.isEmpty()) {
+            model.addAttribute("error", "No data available for predictions");
+            return "error";
+        }
+
+        try {
+            // Prepare time series data
+            List<Double> timePoints = new ArrayList<>();
+            List<Double> cases = new ArrayList<>();
+            
+            // Check which format we have by looking at the header
+            CSVRecord header = currentRecords.get(0);
+            String casesColumn = header.isMapped("Confirmed") ? "Confirmed" : "TotalCases";
+            
+            // For covid_grouped.csv, we need to ensure we're getting daily data
+            if (header.isMapped("Date")) {
+                // Process covid_grouped.csv
+                for (CSVRecord record : currentRecords) {
+                    String value = record.get(casesColumn).trim().replace(",", "");
+                    if (!value.isEmpty()) {
+                        cases.add(Double.parseDouble(value));
+                        timePoints.add((double) timePoints.size());
+                    }
+                }
+            } else {
+                // Process covid.csv - Debug the values
+                System.out.println("Processing covid.csv");
+                for (int i = 0; i < currentRecords.size(); i++) {
+                    CSVRecord record = currentRecords.get(i);
+                    String value = record.get(casesColumn).trim().replace(",", "");
+                    System.out.println("Raw value: " + value);
+                    if (!value.isEmpty() && !value.equals("N/A") && !value.equals("null")) {
+                        try {
+                            double caseValue = Double.parseDouble(value);
+                            if (caseValue >= 0) {  // Only add non-negative values
+                                cases.add(caseValue);
+                                timePoints.add((double) timePoints.size());
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("Skipping invalid number: " + value);
+                        }
+                    }
+                }
+            }
+            
+            // Only proceed if we have data
+            if (cases.isEmpty()) {
+                model.addAttribute("error", "No valid case data found for predictions");
+                return "error";
+            }
+            
+            // Get predictions
+            Map<String, Object> predictions = predictionService.trainAndPredict(timePoints, cases);
+            model.addAttribute("predictions", predictions);
+            model.addAttribute("actualData", cases);
+            model.addAttribute("timePoints", timePoints);
+            
+            return "predictions";
+        } catch (Exception e) {
+            model.addAttribute("error", "Error generating predictions: " + e.getMessage());
+            return "error";
+        }
     }
 } 

@@ -6,113 +6,320 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body {
-            background: #e5e5e5;
+            background: linear-gradient(135deg, #e5e5e5 0%, #d1d1d1 100%);
+            min-height: 100vh;
             padding-bottom: 2rem;
         }
+
+        .container.mt-5 {
+            background: linear-gradient(135deg, #2c4875 0%, #3a5a8c 100%);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(44, 72, 117, 0.2);
+            color: white;
+        }
+
         .chart-container {
             background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
         }
+
+        .chart-container h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
         .stats-card {
             background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
         }
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #0d6efd;
+
+        .stats-card:hover {
+            transform: translateY(-3px);
         }
-        .stat-label {
-            color: #333;
-            font-size: 14px;
-        }
-        .card {
-            border-radius: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-            height: 100%;
-        }
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .stat-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border: 1px solid rgba(52, 152, 219, 0.1);
-            min-height: 180px;
-            display: flex;
-            align-items: center;
-        }
-        .stat-card .card-body {
-            width: 100%;
-            padding: 2rem;
-        }
+
         .stat-card h5 {
-            color: #3498db;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 1.2rem;
-            font-weight: 600;
-        }
-        .stat-card h2 {
             color: #2c3e50;
-            font-weight: 700;
-            font-size: 2rem;
-            margin: 0;
-            line-height: 1.2;
-        }
-        .stat-card .stat-icon {
-            color: #3498db;
-            opacity: 0.1;
-            position: absolute;
-            right: 20px;
-            top: 20px;
-            font-size: 3rem;
-        }
-        .insight-card h5 {
-            color: #3498db;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .insight-card h2 {
-            color: #2c3e50;
-            font-size: 1.8rem;
-        }
-        .insight-card p {
-            color: #7f8c8d;
-        }
-        .chart-container h4 {
-            color: #34495e;
-            font-weight: 600;
             margin-bottom: 1rem;
         }
-        .key-insights-title {
-            color: #2c3e50;
-            font-weight: 600;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 0.5rem;
-            margin-bottom: 1.5rem;
+
+        .stat-card h2 {
+            color: #2c4875;
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
         }
-        .stats-row {
+
+        .insight-card {
+            background: linear-gradient(135deg, #6bba9b 0%, #5a9a87 100%);  /* Brighter green gradient */
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
+            text-align: center;
+        }
+
+        .insight-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .insight-card .card-title {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .insight-card .card-text {
+            color: #2c4875;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .text-muted {
+            color: #5b7db1 !important;
+        }
+
+        .card-body {
+            text-align: left;
+        }
+
+        h1 {
+            color: white;
+            font-weight: 600;
+        }
+
+        h3, h4, h5 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #5b9a8b 0%, #4a8577 100%);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #4a8577 0%, #3a7567 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #5b9a8b 0%, #4a8577 100%);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #4a8577 0%, #3a7567 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .analysis-section {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .analysis-section h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        /* Add styles for the header buttons */
+        .d-flex.justify-content-between {
             margin-bottom: 2rem;
         }
-        .stats-row .col-md-3 {
+
+        /* Main title */
+        .text-dark {  /* This class is on the h1 title */
+            color: white !important;  /* Override Bootstrap's text-dark */
+            font-weight: 600;
+        }
+
+        /* Stats and insights cards */
+        .stat-card i {
+            color: #2c3e50;  /* Dark color for icons */
+        }
+
+        .stat-card h5 {
+            color: #2c3e50;  /* Dark color for card titles */
+        }
+
+        .stat-card h2 {
+            color: #2c4875;  /* Dark blue for values */
+        }
+
+        .card-title {
+            color: #2c3e50;  /* Dark color for insight titles */
+        }
+
+        .card-text {
+            color: #2c4875;  /* Dark blue for insight values */
+        }
+
+        .text-muted {
+            color: #5b7db1 !important;  /* Blue-gray for descriptions */
+        }
+
+        .stat-icon {
+            color: #2c4875;
+            font-size: 2rem;
+            opacity: 0.9;
+            position: absolute;
+            left: -1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            padding: 1rem;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            border: 2px solid rgba(44, 72, 117, 0.1);
+        }
+
+        .insight-card {
+            position: relative;
+            padding-left: 4rem;  /* Space for side icon */
+        }
+
+        .insight-icon {
+            color: #2c4875;
+            font-size: 1.5rem;
+            position: absolute;
+            left: -1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(44, 72, 117, 0.1);
+            padding: 0.8rem;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+        }
+
+        /* Adjust text alignment */
+        .stat-card .card-body,
+        .insight-card .card-body {
+            text-align: left;  /* Change from center to left alignment */
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
+            text-align: center;
+        }
+
+        .insight-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
+            text-align: center;
+        }
+
+        .card-body {
+            text-align: center;
+        }
+
+        .stat-card, 
+        .insight-card,
+        .card-body,
+        .card-title,
+        .card-text,
+        .text-muted,
+        h2, h5 {
+            text-align: center !important;
+        }
+
+        .stats-row .col-md-6,
+        .row .col-md-4 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .card {
+            width: 100%;
+            text-align: center;
+        }
+
+        /* Main container for insights */
+        .card {
+            background: white;
+            border-radius: 1rem;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Individual insight cards */
+        .insight-card {
+            background: linear-gradient(135deg, #6bba9b 0%, #5a9a87 100%);  /* Brighter green gradient */
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(44, 72, 117, 0.1);
+            transition: transform 0.3s ease;
+            text-align: center;
+        }
+
+        .insight-card .card-title {
+            color: white;
             margin-bottom: 1rem;
         }
-        @media (max-width: 768px) {
-            .stat-card {
-                min-height: 120px;
-            }
-            .stat-card h2 {
-                font-size: 1.2rem;
-            }
+
+        .insight-card .card-text {
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .insight-card .text-muted {
+            color: rgba(255, 255, 255, 0.8) !important;
+        }
+
+        .key-insights-title {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .stat-card, 
+        .insight-card,
+        .card-body,
+        .card-title,
+        .card-text,
+        .text-muted,
+        h2, h5 {
+            text-align: center !important;
         }
     </style>
 </head>
@@ -129,8 +336,7 @@
         <div class="row stats-row">
             <div class="col-md-6 mb-4">
                 <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-virus stat-icon"></i>
+                    <div class="card-body">
                         <h5>Total COVID-19 Deaths</h5>
                         <h2 id="totalDeaths">Loading...</h2>
                     </div>
@@ -138,8 +344,7 @@
             </div>
             <div class="col-md-6 mb-4">
                 <div class="card stat-card">
-                    <div class="card-body text-center">
-                        <i class="fas fa-calendar-alt stat-icon"></i>
+                    <div class="card-body">
                         <h5>Analysis Period</h5>
                         <h2 id="period">Loading...</h2>
                     </div>
@@ -226,7 +431,7 @@
                 {
                     title: 'COVID-19 Impact',
                     value: `${((chartData.totalCovidDeaths/chartData.totalDeaths) * 100).toFixed(1)}%`,
-                    description: 'of total deaths were primarily due to COVID-19'
+                    description: 'of total deaths were due to COVID-19'
                 },
                 {
                     title: 'Most Affected Age Group',
@@ -246,7 +451,7 @@
                 insightsDiv.innerHTML += `
                     <div class="col-md-4">
                         <div class="card insight-card">
-                            <div class="card-body text-center">
+                            <div class="card-body">
                                 <h5 class="card-title">${insight.title}</h5>
                                 <h2 class="card-text">${insight.value}</h2>
                                 <p class="text-muted">${insight.description}</p>
