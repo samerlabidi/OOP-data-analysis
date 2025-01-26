@@ -38,6 +38,7 @@ A comprehensive system for analyzing and visualizing COVID-19 data. The applicat
   - JDBC for database operations
 
 ## Project Structure
+ ``
 src/
 ├── main/
 │   ├── java/
@@ -53,7 +54,7 @@ src/
 │           ├── comprehensive-analysis.html
 │           ├── csv-analysis.html
 │           └── json-analysis.html
-
+ ``
 ## Installation & Setup
 1. Clone the repository
    ```bash
